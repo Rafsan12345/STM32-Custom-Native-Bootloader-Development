@@ -1,0 +1,89 @@
+/*================================================================================
+ * File: main.c
+ * Purpose: STM32 Multiple Firmware Jump Example
+ * Description:
+ *   Demonstrates a bootloader that can jump to two separate firmware images
+ *   stored in different flash addresses. Decision is made via a command/pin.
+ *================================================================================*/
+
+#include "main.h"
+#include "stm32f1xx_hal.h"
+
+/*------------------------- Function Prototypes -------------------------*/
+void SystemClock_Config(void);
+void MX_GPIO_Init(void);
+void JumpToApplication(uint32_t appAddress);
+
+/*------------------------- Firmware Addresses -------------------------*/
+#define FW1_START_ADDR 0x08004000  // Firmware 1 start address
+#define FW2_START_ADDR 0x08008000  // Firmware 2 start address
+
+/*------------------------- Application Jump -------------------------*/
+void JumpToApplication(uint32_t appAddress) {
+    typedef void (*pFunction)(void);
+    pFunction JumpToApp;
+    
+    uint32_t JumpAddress = *(__IO uint32_t*)(appAddress + 4); // Reset handler
+    JumpToApp = (pFunction) JumpAddress;
+
+    __set_MSP(*(__IO uint32_t*) appAddress); // Set stack pointer
+    JumpToApp();
+}
+
+/*------------------------- Main Function -------------------------*/
+int main(void) {
+    HAL_Init();
+    SystemClock_Config();
+    MX_GPIO_Init();
+
+    uint8_t select_fw = 0;
+
+    /* Example: Use GPIO pin or UART to select firmware */
+    if(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_SET) {
+        select_fw = 1;  // Firmware 1
+    } else {
+        select_fw = 2;  // Firmware 2
+    }
+
+    if(select_fw == 1) {
+        JumpToApplication(FW1_START_ADDR);
+    } else {
+        JumpToApplication(FW2_START_ADDR);
+    }
+
+    while(1) {
+        // Should never reach here
+    }
+}
+
+/*------------------------- GPIO Initialization -------------------------*/
+void MX_GPIO_Init(void) {
+    __HAL_RCC_GPIOA_CLK_ENABLE();
+    GPIO_InitTypeDef GPIO_InitStruct = {0};
+
+    GPIO_InitStruct.Pin = GPIO_PIN_0; // Select firmware pin
+    GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+}
+
+/*------------------------- System Clock -------------------------*/
+void SystemClock_Config(void) {
+    RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+    RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+
+    RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+    RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+    RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+    RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+    RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL9;
+    HAL_RCC_OscConfig(&RCC_OscInitStruct);
+
+    RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
+                                |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
+    RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+    RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+    RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
+    RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
+    HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2);
+}
