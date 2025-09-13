@@ -1,0 +1,27 @@
+/* main.c - UART Bootloader */
+#include "main.h"
+#include "stm32f1xx_hal.h"
+UART_HandleTypeDef huart1;
+
+void JumpToApplication(uint32_t appAddress) {
+    typedef void (*pFunction)(void);
+    pFunction JumpToApp;
+    uint32_t JumpAddress = *(__IO uint32_t*)(appAddress + 4);
+    JumpToApp = (pFunction) JumpAddress;
+    __set_MSP(*(__IO uint32_t*) appAddress);
+    JumpToApp();
+}
+
+int main(void) {
+    HAL_Init();
+    SystemClock_Config();
+    MX_GPIO_Init();
+    MX_USART1_UART_Init();
+
+    uint8_t cmd;
+    HAL_UART_Receive(&huart1, &cmd, 1, HAL_MAX_DELAY);
+    if(cmd == 0xA5) HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET); // Update mode
+    else JumpToApplication(0x08004000); // Application jump
+
+    while(1) {}
+}

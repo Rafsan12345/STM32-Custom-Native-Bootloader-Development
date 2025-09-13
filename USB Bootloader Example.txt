@@ -1,0 +1,23 @@
+/* main.c - USB Bootloader */
+#include "main.h"
+#include "stm32f1xx_hal.h"
+#include "usbd_core.h"
+#include "usbd_cdc.h"
+
+extern USBD_HandleTypeDef hUsbDeviceFS;
+
+void JumpToApplication(uint32_t appAddress) { /* same as UART example */ }
+
+int main(void) {
+    HAL_Init();
+    SystemClock_Config();
+    MX_GPIO_Init();
+    MX_USB_DEVICE_Init(); // USB CDC device init
+
+    uint8_t cmd[1];
+    while(USBD_OK != USBD_CDC_ReceivePacket(&hUsbDeviceFS)); // Wait USB data
+    if(cmd[0]==0xA5) HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET); // Update mode
+    else JumpToApplication(0x08004000);
+
+    while(1) {}
+}

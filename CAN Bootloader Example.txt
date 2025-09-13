@@ -1,0 +1,26 @@
+/* main.c - CAN Bootloader */
+#include "main.h"
+#include "stm32f1xx_hal.h"
+
+CAN_HandleTypeDef hcan;
+
+void JumpToApplication(uint32_t appAddress) { /* same as above */ }
+
+int main(void) {
+    HAL_Init();
+    SystemClock_Config();
+    MX_GPIO_Init();
+    MX_CAN_Init();
+
+    CAN_RxHeaderTypeDef rxHeader;
+    uint8_t rxData[8];
+    HAL_CAN_Start(&hcan);
+
+    while(HAL_CAN_GetRxFifoFillLevel(&hcan, CAN_RX_FIFO0) == 0); // Wait CAN frame
+    HAL_CAN_GetRxMessage(&hcan, CAN_RX_FIFO0, &rxHeader, rxData);
+
+    if(rxData[0]==0xA5) HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET); // Update mode
+    else JumpToApplication(0x08004000);
+
+    while(1) {}
+}

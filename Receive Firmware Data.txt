@@ -1,0 +1,16 @@
+#define FLASH_START_ADDR 0x08004000
+#define PAGE_SIZE        1024
+uint8_t buffer[256];
+uint32_t flash_addr = FLASH_START_ADDR;
+
+while(update_mode) {
+    HAL_UART_Receive(&huart1, buffer, sizeof(buffer), HAL_MAX_DELAY); // receive chunk
+    // write buffer to flash
+    HAL_FLASH_Unlock();
+    for(int i=0; i<sizeof(buffer); i+=4) {
+        uint32_t word = *(uint32_t*)(buffer + i);
+        HAL_FLASH_Program(TYPEPROGRAM_WORD, flash_addr, word);
+        flash_addr += 4;
+    }
+    HAL_FLASH_Lock();
+}
